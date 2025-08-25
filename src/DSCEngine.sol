@@ -57,6 +57,8 @@ contract DSCEngine is ReentrancyGuard {
     error DSCEngine__TokenAddressesAndPriceFeedAddressesMustBeSameLength();
     error DSCEngine__NotAllowedToken();
     error DSCEngine__TransferFailed();
+    error DSCEngine__BreaksHealthFactor(uint256 healthFactor);
+    error DSCEngine__MintFailed();
 
     /*//////////////////////////////////////////////////////////////
                             STATE VARIABLES
@@ -64,6 +66,9 @@ contract DSCEngine is ReentrancyGuard {
 
     uint256 private constant ADDITIONAL_FEED_PRECISION = 1e10;
     uint256 private constant PRECISION = 1e18; // 1e18 is the precision for the price feeds
+    uint256 private constant LIQUIDATION_THRESHOLD = 50;
+    uint256 private constant LIQUIDATION_PRECISION = 100;
+    uint256 private constant MIN_HEALTH_FACTOR = 1;
 
     mapping(address token => address priceFeed) private s_priceFeeds; // tokenToPriceFeed
     mapping(address user => mapping(address token => uint256 amount)) private s_collateralDeposited; // userToTokenToAmount
@@ -150,6 +155,10 @@ contract DSCEngine is ReentrancyGuard {
         s_DSCMinted[msg.sender] += amountDscToMint;
         // if they minted too much ,revert
         _revertIfhealthFactorIsBroken(msg.sender);
+        bool minted = i_dsc.mint(msg.sender, amountDscToMint);
+        if (!minted){
+            revert DSCEngine__MintFailed();
+        }
     }
 
     function burnDSC() external {}
@@ -175,10 +184,23 @@ contract DSCEngine is ReentrancyGuard {
      */
 
     function _healthFactor(address user) private view returns(uint256) {
+        // total DSC minted
+        // total collateral value 
         (uint256 totalDscMinted , uint256 collateralValueInUsd) = _getAccountInformation(user);
+        uint256 collateralAdjustedForThreshold = (collateralValueInUsd * LIQUIDATION_THRESHOLD) / LIQUIDATION_PRECISION;
+        // $150 ETH / 100 DSC = 1.5
+        // 150 * 50 / 100 = 75/100 < 1
+        // 250 * 50 / 100 = 125/100 > 1
+        // 1000 * 50 / 100 = 500/100 > 1
+
+        return (collateralAdjustedForThreshold * PRECISION) / totalDscMinted;
     }
 
     function _revertIfhealthFactorIsBroken(address user) private view {
+        uint256 userHealthFactor = _healthFactor(user);
+        if (userHealthFactor < MIN_HEALTH_FACTOR) {
+            revert DSCEngine__BreaksHealthFactor(userHealthFactor);
+        }
        //
     }
 
@@ -187,14 +209,21 @@ contract DSCEngine is ReentrancyGuard {
                      PUBLIC AND EXTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    function getAccountCollateralValueInUsd(address user) public view returns(uint256){
-
+    function getAccountCollateralValueInUsd(address user) public view returns(uint256 totalCollateralValueInUsd){
+        for (uint256 i=0; i< s_collateralTokens.length; i++){
+            address token = s_collateralTokens[i];
+            uint256 amount = s_collateralDeposited[user] [token];
+            totalCollateralValueInUsd += getUsdValue(token, amount);
+        }
+        return totalCollateralValueInUsd;
     }
 
     function getUsdValue(address token , uint256 amount) public view returns(uint256){
         AggregatorV3Interface priceFeed = AggregatorV3Interface(s_priceFeeds[token]);
         (, int256 price,,,) = priceFeed.latestRoundData();
         // 1 ETH = $1000
+        // The returned price from chainlink is in 8 decimals, so we need to adjust it to 18 decimals
+        return (uint256(price) * amount * ADDITIONAL_FEED_PRECISION) / PRECISION;
 
     }
 }
