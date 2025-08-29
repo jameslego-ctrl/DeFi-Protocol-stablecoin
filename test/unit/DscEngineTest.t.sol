@@ -8,9 +8,7 @@ import {DSCEngine} from "../../src/DSCEngine.sol";
 import {HelperConfig} from "../../script/HelperConfig.s.sol";
 import {ERC20Mock} from "@openzeppelin/contracts/mocks/ERC20Mock.sol";
 
-
-contract DSCEngineTest is Test{
-
+contract DSCEngineTest is Test {
     DeployDSC deployer;
     DecentralizedStableCoin dsc;
     DSCEngine dsce;
@@ -22,38 +20,36 @@ contract DSCEngineTest is Test{
     uint256 public constant AMOUNT_COLLATERAL = 10 ether;
     uint256 public constant STARTING_ERC20_BALANCE = 10 ether;
 
-    function setUp() public{
+    function setUp() public {
         deployer = new DeployDSC();
-        (dsc,dsce,config) = deployer.run();
-        (ethUsdPriceFeed,,weth,,) = config.activeNetworkConfig();
+        (dsc, dsce, config) = deployer.run();
+        (ethUsdPriceFeed,, weth,,) = config.activeNetworkConfig();
 
-        ERC20Mock(weth).mint(USER,STARTING_ERC20_BALANCE);
+        ERC20Mock(weth).mint(USER, STARTING_ERC20_BALANCE);
     }
 
-        /*//////////////////////////////////////////////////////////////
+    /*//////////////////////////////////////////////////////////////
                                PRICE TEST
     //////////////////////////////////////////////////////////////*/
 
-    function testGetUsdValue() public view{
+    function testGetUsdValue() public view {
         uint256 ethAmount = 15e18;
         // 15e18 * 2000/Eth = 30,000e18;
         uint256 expectedUsd = 30000e18;
-        uint256 actualUsd = dsce.getUsdValue(weth,ethAmount);
+        uint256 actualUsd = dsce.getUsdValue(weth, ethAmount);
 
-        assertEq(actualUsd,expectedUsd);
+        assertEq(actualUsd, expectedUsd);
     }
 
-
-        /*//////////////////////////////////////////////////////////////
+    /*//////////////////////////////////////////////////////////////
                         DEPOSIT COLLATERAL TEST
     //////////////////////////////////////////////////////////////*/
 
     function testRevertsIfCollateralIsZero() public {
         vm.prank(USER);
-        ERC20Mock(weth).approve(address(dsce),AMOUNT_COLLATERAL);
+        ERC20Mock(weth).approve(address(dsce), AMOUNT_COLLATERAL);
 
         vm.expectRevert(DSCEngine.DSCEngine__NeedsMoreThanZero.selector);
-        dsce.depositCollateral(weth,0);
-
+        dsce.depositCollateral(weth, 0);
     }
 }
