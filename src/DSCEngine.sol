@@ -249,7 +249,7 @@ contract DSCEngine is ReentrancyGuard {
         // debtToCover = $100
         // $100 DSC == ?? ETH?
 
-        uint256 tokenAmountFromDebtToCover = getTokenAmountInUsd(collateral, debtToCover);
+        uint256 tokenAmountFromDebtToCover = getTokenAmountFromUsd(collateral, debtToCover);
         // And give them a 10% bonus
         // so we are giving the liquidator $110 of WETH for $100 DSC
         // we should implement a feature to liquidate in the event the protocol is insolvent
@@ -334,7 +334,7 @@ contract DSCEngine is ReentrancyGuard {
                      PUBLIC AND EXTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    function getTokenAmountInUsd(address token, uint256 usdAmountInWei) public view returns (uint256) {
+    function getTokenAmountFromUsd(address token, uint256 usdAmountInWei) public view returns (uint256) {
         // price of ETH (token)
         // $/ETH ETH ??
         // $2000/ETH . $1000 = 0.5 ETH
@@ -360,5 +360,10 @@ contract DSCEngine is ReentrancyGuard {
         // 1 ETH = $1000
         // The returned price from chainlink is in 8 decimals, so we need to adjust it to 18 decimals
         return (uint256(price) * amount * ADDITIONAL_FEED_PRECISION) / PRECISION;
+    }
+
+    function getAccountInformation(address user) external view returns(uint256 totalDscMinted, uint256 collateralValueInUsd) {
+
+        (totalDscMinted, collateralValueInUsd) = _getAccountInformation(user);
     }
 }
