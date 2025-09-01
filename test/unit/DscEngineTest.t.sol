@@ -18,14 +18,14 @@ contract DSCEngineTest is Test {
     address btcUsdPriceFeed;
     address weth;
 
-    address public USER = makeAddr("USER");
+    address public USER = makeAddr("user");
     uint256 public constant AMOUNT_COLLATERAL = 10 ether;
     uint256 public constant STARTING_ERC20_BALANCE = 10 ether;
 
     function setUp() public {
         deployer = new DeployDSC();
         (dsc, dsce, config) = deployer.run();
-        (ethUsdPriceFeed,, weth,,) = config.activeNetworkConfig();
+        (ethUsdPriceFeed, btcUsdPriceFeed, weth,,) = config.activeNetworkConfig();
 
         ERC20Mock(weth).mint(USER, STARTING_ERC20_BALANCE);
     }
@@ -87,9 +87,10 @@ contract DSCEngineTest is Test {
     }
 
     modifier depositedCollateral(){
-        vm.prank(USER);
+        vm.startPrank(USER);
         ERC20Mock(weth).approve(address(dsce), AMOUNT_COLLATERAL);
         dsce.depositCollateral(weth, AMOUNT_COLLATERAL);
+        vm.stopPrank();
         _;
     }
 
